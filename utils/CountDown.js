@@ -1,0 +1,3 @@
+function countDownOtp(time) {
+    setTimeout()
+}
