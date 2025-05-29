@@ -16,8 +16,56 @@ import {
 import { MessageModel } from "../models/MessageModel.js";
 import { ConversationModel } from "../models/ConversationModel.js";
 
+
+
 // Biến để lưu trữ io instance để có thể sử dụng từ các module khác
 let ioInstance = null;
+
+// Hàm để gửi đồng bộ đến thiết bị của người dùng
+export const emitDeviceSync = (userId, syncData) => {
+  if (!ioInstance || !userId) {
+    return false;
+  }
+  
+  try {
+    console.log(`📱 Gửi đồng bộ đến thiết bị của user ${userId}`);
+    
+    // Emit tới userId - sẽ gửi đến tất cả thiết bị đã join room của user này
+    ioInstance.to(userId).emit('device_sync', {
+      ...syncData,
+      timestamp: new Date()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error(`Lỗi khi gửi đồng bộ đến thiết bị của user ${userId}:`, error);
+    return false;
+  }
+};
+
+// Hàm để gửi thông báo người dùng đang nhập
+export const emitSpecificUserTyping = (userId, userName, conversationId) => {
+  if (!ioInstance || !userId || !conversationId) {
+    return false;
+  }
+  
+  try {
+    console.log(`⌨️ Gửi thông báo người dùng ${userName} đang nhập trong cuộc trò chuyện ${conversationId}`);
+    
+    // Emit đến tất cả thành viên trong cuộc trò chuyện
+    ioInstance.to(conversationId).emit('specific_user_typing', {
+      userId,
+      userName,
+      conversationId,
+      timestamp: new Date()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error(`Lỗi khi gửi thông báo đang nhập:`, error);
+    return false;
+  }
+};
 
 export const ConnectSocket = (server) => {
   const io = new Server(server, {
@@ -27,6 +75,7 @@ export const ConnectSocket = (server) => {
       allowedHeaders: ["my-custom-header", "Content-Type", "Authorization"],
       credentials: true,
     },
+    pingTimeout: 60000, // Tăng timeout để duy trì kết nối tốt hơn
   });
   
   // Lưu io instance để có thể sử dụng từ bên ngoài
@@ -39,22 +88,42 @@ export const ConnectSocket = (server) => {
     const userStatusMap = new Map();
 
     socket.on("join_room", (User) => {
-      console.log("join-room");
-      socket.join(User._id);
+      // Kiểm tra dữ liệu người dùng
+      if (!User || !User._id) {
+        console.error("Invalid user data in join_room event");
+        return;
+      }
+      
+      // Đảm bảo rằng User._id là chuỗi
+      const userId = User._id.toString();
+      
+      console.log(`💬 User joining room: ${User.name || 'Unknown'} (${userId})`);
+      console.log(`Socket ID: ${socket.id}, User ID: ${userId}`);
+      
+      // Tham gia phòng với ID người dùng
+      socket.join(userId);
+      
+      // Lưu trữ ID người dùng vào socket để sử dụng sau này
+      socket.userId = userId;
       
       // Cập nhật trạng thái online và thông báo cho danh bạ
-      if (User._id) {
-        // Kiểm tra nếu người dùng đã online rồi thì không gửi lại sự kiện
-        const wasAlreadyOnline = userStatusMap.get(User._id) === true;
-        
-        // Cập nhật trạng thái, nhưng chỉ gửi thông báo nếu chuyển từ offline sang online
-        userStatusMap.set(User._id, true);
-        
-        if (!wasAlreadyOnline) {
-          console.log(`Emitting user_online for ${User._id}`);
-          socket.broadcast.emit("user_online", User._id);
-        }
+      // Kiểm tra nếu người dùng đã online rồi thì không gửi lại sự kiện
+      const wasAlreadyOnline = userStatusMap.get(userId) === true;
+      
+      // Cập nhật trạng thái, nhưng chỉ gửi thông báo nếu chuyển từ offline sang online
+      userStatusMap.set(userId, true);
+      
+      if (!wasAlreadyOnline) {
+        console.log(`Emitting user_online for ${userId}`);
+        socket.broadcast.emit("user_online", userId);
       }
+      
+      // Gửi xác nhận tham gia phòng thành công
+      socket.emit("room_joined", {
+        userId: userId,
+        socketId: socket.id,
+        timestamp: new Date().toISOString()
+      });
     });
 
     socket.on("leave_room", (User) => {
@@ -959,107 +1028,103 @@ export const ConnectSocket = (server) => {
       }
     });
 
+    // Xử lý cuộc gọi video/audio
+    socket.on("call_request", (callData) => {
+      console.log("Call request received:", callData);
+      try {
+        if (!callData || !callData.recipientId) {
+          console.error("Invalid call request data");
+          return;
+        }
+
+        // Gửi yêu cầu cuộc gọi đến người nhận
+        console.log(`Forwarding call request to ${callData.recipientId}`);
+        socket.to(callData.recipientId).emit("call_request", callData);
+      } catch (error) {
+        console.error("Error processing call request:", error);
+      }
+    });
+
+    socket.on("call_accepted", (callData) => {
+      console.log("Call accepted:", callData);
+      try {
+        if (!callData || !callData.callerId) {
+          console.error("Invalid call accept data");
+          return;
+        }
+
+        // Gửi thông báo chấp nhận cuộc gọi đến người gọi
+        console.log(`Forwarding call acceptance to ${callData.callerId}`);
+        socket.to(callData.callerId).emit("call_accepted", callData);
+      } catch (error) {
+        console.error("Error processing call acceptance:", error);
+      }
+    });
+
+    socket.on("call_rejected", (callData) => {
+      console.log("Call rejected:", callData);
+      try {
+        if (!callData || !callData.callerId) {
+          console.error("Invalid call reject data");
+          return;
+        }
+
+        // Gửi thông báo từ chối cuộc gọi đến người gọi
+        console.log(`Forwarding call rejection to ${callData.callerId}`);
+        socket.to(callData.callerId).emit("call_rejected", callData);
+      } catch (error) {
+        console.error("Error processing call rejection:", error);
+      }
+    });
+
+    socket.on("call_ended", (callData) => {
+      console.log("Call ended:", callData);
+      try {
+        if (!callData) {
+          console.error("Invalid call end data");
+          return;
+        }
+
+        // Xác định người nhận thông báo kết thúc cuộc gọi
+        const targetId = callData.callerId === socket.id ? callData.recipientId : callData.callerId;
+        
+        // Gửi thông báo kết thúc cuộc gọi
+        if (targetId) {
+          console.log(`Forwarding call end notification to ${targetId}`);
+          socket.to(targetId).emit("call_ended", callData);
+        } else {
+          // Nếu không có targetId cụ thể, gửi đến cả người gọi và người nhận
+          if (callData.callerId) socket.to(callData.callerId).emit("call_ended", callData);
+          if (callData.recipientId) socket.to(callData.recipientId).emit("call_ended", callData);
+        }
+      } catch (error) {
+        console.error("Error processing call end:", error);
+      }
+    });
+
+    socket.on("signal_data", (signalData) => {
+      try {
+        if (!signalData || !signalData.to) {
+          console.error("Invalid signal data");
+          return;
+        }
+
+        console.log(`Forwarding ${signalData.type} signal from ${signalData.from} to ${signalData.to}`);
+        
+        // Gửi dữ liệu tín hiệu đến đối tượng cụ thể
+        socket.to(signalData.to).emit("signal_data", signalData);
+      } catch (error) {
+        console.error("Error processing signal data:", error);
+      }
+    });
+
     socket.on("disconnect", () => {
       console.log(`${socket.id} disconnected`);
     });
-    
-    // Xử lý các sự kiện cuộc gọi video và âm thanh
-    
-    // Sự kiện khi người dùng gửi yêu cầu cuộc gọi
-    socket.on("call_request", (data) => {
-      try {
-        const { callerId, callerName, recipientId, callType } = data;
-        
-        if (!callerId || !recipientId) {
-          console.error("Missing caller or recipient ID in call request");
-          return;
-        }
-        
-        console.log(`📞 Call request from ${callerName || callerId} to ${recipientId} (${callType})`);
-        
-        // Gửi yêu cầu cuộc gọi đến người nhận
-        io.to(recipientId).emit("call_request", data);
-      } catch (error) {
-        console.error("Error in call_request event:", error);
-      }
-    });
-    
-    // Sự kiện khi người nhận chấp nhận cuộc gọi
-    socket.on("call_accepted", (data) => {
-      try {
-        const { callerId, recipientId } = data;
-        
-        if (!callerId || !recipientId) {
-          console.error("Missing caller or recipient ID in call accept");
-          return;
-        }
-        
-        console.log(`📞 Call accepted: ${recipientId} accepted call from ${callerId}`);
-        
-        // Gửi thông báo chấp nhận cuộc gọi đến người gọi
-        io.to(callerId).emit("call_accepted", data);
-      } catch (error) {
-        console.error("Error in call_accepted event:", error);
-      }
-    });
-    
-    // Sự kiện khi người nhận từ chối cuộc gọi
-    socket.on("call_rejected", (data) => {
-      try {
-        const { callerId, recipientId } = data;
-        
-        if (!callerId || !recipientId) {
-          console.error("Missing caller or recipient ID in call reject");
-          return;
-        }
-        
-        console.log(`📞 Call rejected: ${recipientId} rejected call from ${callerId}`);
-        
-        // Gửi thông báo từ chối cuộc gọi đến người gọi
-        io.to(callerId).emit("call_rejected", data);
-      } catch (error) {
-        console.error("Error in call_rejected event:", error);
-      }
-    });
-    
-    // Sự kiện khi cuộc gọi kết thúc
-    socket.on("call_ended", (data) => {
-      try {
-        const { callerId, recipientId, endedBy } = data;
-        
-        if (!callerId || !recipientId) {
-          console.error("Missing caller or recipient ID in call end");
-          return;
-        }
-        
-        console.log(`📞 Call ended by ${endedBy}: call between ${callerId} and ${recipientId}`);
-        
-        // Gửi thông báo kết thúc cuộc gọi đến cả người gọi và người nhận
-        io.to(callerId).emit("call_ended", data);
-        io.to(recipientId).emit("call_ended", data);
-      } catch (error) {
-        console.error("Error in call_ended event:", error);
-      }
-    });
-    
-    // Sự kiện trao đổi tín hiệu WebRTC
-    socket.on("signal_data", (data) => {
-      try {
-        const { to, from, signal } = data;
-        
-        if (!to || !from || !signal) {
-          console.error("Missing required data in signal_data event");
-          return;
-        }
-        
-        console.log(`📡 Signal data from ${from} to ${to} (type: ${signal.type || 'unknown'})`);
-        
-        // Gửi tín hiệu đến người nhận
-        io.to(to).emit("signal_data", data);
-      } catch (error) {
-        console.error("Error in signal_data event:", error);
-      }
-    });
+  });
+
+  return io;
+};
 
     // Xử lý tạo nhóm mới
     socket.on("create_group", async (groupData) => {
@@ -1323,65 +1388,6 @@ export const emitNewMessage = async (message, socketId = null) => {
     return true;
   }
   return false;
-};
-
-// Xuất ioInstance để các module khác có thể sử dụng
-export const getIO = () => ioInstance;
-
-export const emitDeviceSync = async (userId, syncData) => {
-  if (!ioInstance || !userId) {
-    return false;
-  }
-  
-  try {
-    console.log(`📱 Gửi đồng bộ đến thiết bị của user ${userId}`);
-    
-    // Emit tới userId - sẽ gửi đến tất cả thiết bị đã join room của user này
-    ioInstance.to(userId).emit('device_sync', {
-      ...syncData,
-      timestamp: new Date()
-    });
-    
-    return true;
-  } catch (error) {
-    console.error(`Lỗi khi gửi đồng bộ đến thiết bị của user ${userId}:`, error);
-    return false;
-  }
-};
-
-export const emitSpecificUserTyping = async (userId, userName, conversationId) => {
-  if (!ioInstance || !userId || !conversationId) {
-    return false;
-  }
-  
-  try {
-    console.log(`⌨️ Gửi thông báo người dùng ${userName} đang nhập trong cuộc trò chuyện ${conversationId}`);
-    
-    // Emit đến tất cả thành viên trong cuộc trò chuyện
-    ioInstance.to(conversationId).emit('specific_user_typing', {
-      userId,
-      userName,
-      conversationId,
-      timestamp: new Date()
-    });
-    
-    return true;
-  } catch (error) {
-    console.error(`Lỗi khi gửi thông báo đang nhập:`, error);
-    return false;
-  }
-};
-
-export const emitUserActivity = async (userId, activityType, extraData = {}) => {
-  if (!ioInstance || !userId) {
-    return false;
-  }
-  
-  try {
-    console.log(`👤 Gửi thông báo hoạt động ${activityType} của user ${userId}`);
-    
-    // Tìm danh sách bạn bè hoặc liên hệ của người dùng
-    // Đây chỉ là ví dụ, thực tế cần thay thế bằng truy vấn thực tế
     const { UsersModel } = await import("../models/UserModel.js");
     const user = await UsersModel.findById(userId);
     
