@@ -51,8 +51,21 @@ export const updateRefeshToken = (user, refeshToken) => {
 
 export const Login = async (req, res) => {
   // Kiểm tra thông tin đầy đủ
-  if (!req.body.phone == null || !req.body.password == null) {
+  if (!req.body.phone || !req.body.password) {
     return res.status(400).send({ message: "Vui lòng điền đầy đủ thông tin" });
+  }
+  // Kiểm tra số điện thoại
+  const phoneRegex = /^\d{10}$/;
+  if (!phoneRegex.test(req.body.phone)) {
+    return res.status(400).send({ message: "Số điện thoại phải gồm đúng 10 chữ số." });
+  }
+  // Kiểm tra mật khẩu
+  const password = req.body.password;
+  const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@#$!%*?&^_-]{8,32}$/;
+  if (!passwordRegex.test(password) || /\s/.test(password)) {
+    return res.status(400).send({ 
+      message: "Mật khẩu phải từ 8-32 ký tự, gồm chữ cái, số, ký tự đặc biệt và không chứa khoảng trắng." 
+    });
   }
 
   const user = await UsersModel.findOne({
@@ -79,6 +92,20 @@ export const Login = async (req, res) => {
 };
 
 export const Register = async (req, res) => {
+  // Kiểm tra số điện thoại
+  const phoneRegex = /^\d{10}$/;
+  if (!phoneRegex.test(req.body.phone)) {
+    return res.status(400).send({ message: "Số điện thoại phải gồm đúng 10 chữ số." });
+  }
+  // Kiểm tra mật khẩu
+  const password = req.body.password;
+  const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@#$!%*?&^_-]{8,32}$/;
+  if (!passwordRegex.test(password) || /\s/.test(password)) {
+    return res.status(400).send({ 
+      message: "Mật khẩu phải từ 8-32 ký tự, gồm chữ cái, số, ký tự đặc biệt và không chứa khoảng trắng." 
+    });
+  }
+
   console.log(req.body);
   const userExists = await UsersModel.findOne({ phone: req.body.phone });
   console.log(userExists);
