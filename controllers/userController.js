@@ -119,13 +119,13 @@ export const Register = async (req, res) => {
   user.password = password;
   user.otp = "";
   user.avatar = "https://res.cloudinary.com/daclejcpu/image/upload/v1744812771/avatar-mac-dinh-12_i7jnd3.jpg";
-  await user.save();
+    await user.save();
   return res.status(200).send({
-    _id: user._id,
-    name: user.name,
-    phone: user.phone,
-    otp: "",
-  });
+      _id: user._id,
+      name: user.name,
+      phone: user.phone,
+      otp: "",
+    });
 };
 
 export const getNewToken = async (req, res) => {
