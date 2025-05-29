@@ -141,7 +141,7 @@ export const processGeminiMessage = async (req, res) => {
       idConversation: conversationId,
       sender: sender,
       content: content,
-      type: 'command',
+      type: 'text',
       status: 'sent',
       isAIGenerated: false
     });

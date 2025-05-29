@@ -95,7 +95,7 @@ export const generateImageFromText = async (req, res) => {
       idConversation: conversationId,
       sender: sender,
       content: prompt,
-      type: 'command',
+      type: 'text',
       status: 'sent',
       isAIGenerated: false
     });
@@ -249,7 +249,7 @@ export const transformImage = async (req, res) => {
       idConversation: conversationId,
       sender: sender,
       content: prompt,
-      type: 'command',
+      type: 'text',
       status: 'sent',
       isAIGenerated: false
     });
