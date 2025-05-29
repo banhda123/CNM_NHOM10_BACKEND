@@ -136,6 +136,23 @@ export const processGeminiMessage = async (req, res) => {
       return res.status(500).json({ error: 'Failed to process conversation data' });
     }
     
+    // 1. Lưu message gốc (câu hỏi của user)
+    const userMessage = new MessageModel({
+      idConversation: conversationId,
+      sender: sender,
+      content: content,
+      type: 'command',
+      status: 'sent',
+      isAIGenerated: false
+    });
+    await userMessage.save();
+    // Emit socket cho câu hỏi của user
+    try {
+      await emitNewMessage(userMessage, req.body.socketId);
+    } catch (e) {
+      console.error('Error emitting Gemini user question via socket:', e);
+    }
+    
     // Generate Gemini response
     const geminiResponse = await fetchGeminiResponse(query);
     
@@ -165,15 +182,6 @@ export const processGeminiMessage = async (req, res) => {
       await emitNewMessage(newMessage);
     } catch (e) {
       console.error('Error emitting Gemini message via socket:', e);
-    }
-    
-    // Save the user question message
-    await newMessage.save();
-    // Emit socket cho câu hỏi của user
-    try {
-      await emitNewMessage(newMessage, socketId);
-    } catch (e) {
-      console.error('Error emitting Gemini user question via socket:', e);
     }
     
     return res.status(200).json({

@@ -90,6 +90,23 @@ export const generateImageFromText = async (req, res) => {
 
     console.log(`Generating image for prompt: "${prompt}"`);
 
+    // 1. Lưu message gốc (câu hỏi của user)
+    const userMessage = new MessageModel({
+      idConversation: conversationId,
+      sender: sender,
+      content: prompt,
+      type: 'command',
+      status: 'sent',
+      isAIGenerated: false
+    });
+    await userMessage.save();
+    // Emit socket cho câu hỏi của user
+    try {
+      await emitNewMessage(userMessage, socketId);
+    } catch (e) {
+      console.error('Error emitting ImageAI user question via socket:', e);
+    }
+
     // Call Replicate API to generate image
     // Using Stable Diffusion model
     console.log('Calling Replicate API for image generation...');
@@ -226,6 +243,23 @@ export const transformImage = async (req, res) => {
     }
 
     console.log(`Transforming image: ${imageUrl}`);
+
+    // 1. Lưu message gốc (câu hỏi của user)
+    const userMessage = new MessageModel({
+      idConversation: conversationId,
+      sender: sender,
+      content: prompt,
+      type: 'command',
+      status: 'sent',
+      isAIGenerated: false
+    });
+    await userMessage.save();
+    // Emit socket cho câu hỏi của user
+    try {
+      await emitNewMessage(userMessage, socketId);
+    } catch (e) {
+      console.error('Error emitting ImageAI user question via socket:', e);
+    }
 
     // Call Replicate API to transform image
     // Using a style transfer model
