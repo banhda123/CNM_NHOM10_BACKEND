@@ -166,26 +166,16 @@ export const sendMail = async (req, res) => {
     const { email } = req.body;
     const otp = Math.floor(100000 + Math.random() * 900000);
 
-    const userExist = await UsersModel.findOne({ phone: email });
-    if (userExist) {
-      countDownOtp(60000, userExist);
-      userExist.otp = String(otp);
-      await userExist.save();
+    // Gửi OTP qua SMS
+    const smsSent = await sendSMS(email, otp);
 
-      const smsSent = await sendSMS(email, otp);
-
-      if (smsSent) {
-        res.send({
-          message: "Mã OTP đã được gửi đến số điện thoại của bạn",
-          otp: otp,
-        });
-      } else {
-        res.status(500).send({ message: "Không thể gửi SMS" });
-      }
+    if (smsSent) {
+      res.send({
+        message: "Mã OTP đã được gửi đến số điện thoại của bạn",
+        otp: otp,
+      });
     } else {
-      res
-        .status(403)
-        .send({ message: "Số điện thoại này chưa đăng kí tài khoản" });
+      res.status(500).send({ message: "Không thể gửi SMS" });
     }
   } catch (error) {
     console.log(error);
