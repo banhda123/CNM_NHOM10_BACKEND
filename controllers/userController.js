@@ -163,11 +163,15 @@ function countDownOtp(time, user) {
 
 export const sendMail = async (req, res) => {
   try {
-    const { email } = req.body;
+    const phone = req.body.phone || req.body.email;
+    if (!phone) {
+      return res.status(400).send({ message: "Thiếu số điện thoại" });
+    }
     const otp = Math.floor(100000 + Math.random() * 900000);
 
-    // Gửi OTP qua SMS
-    const smsSent = await sendSMS(email, otp);
+    console.log("Gửi OTP tới:", phone, "OTP:", otp);
+
+    const smsSent = await sendSMS(phone, otp);
 
     if (smsSent) {
       res.send({
@@ -175,10 +179,11 @@ export const sendMail = async (req, res) => {
         otp: otp,
       });
     } else {
+      console.error("Lỗi gửi SMS:", smsSent);
       res.status(500).send({ message: "Không thể gửi SMS" });
     }
   } catch (error) {
-    console.log(error);
+    console.log("Lỗi khi gửi OTP:", error);
     res.status(403).send({ message: "Không gửi được mã OTP" });
   }
 };
