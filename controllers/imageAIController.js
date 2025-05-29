@@ -94,7 +94,7 @@ export const generateImageFromText = async (req, res) => {
     const userMessage = new MessageModel({
       idConversation: conversationId,
       sender: sender,
-      content: prompt,
+      content: req.body.content || `@Image ${prompt}`,
       type: 'text',
       status: 'sent',
       isAIGenerated: false
@@ -248,7 +248,7 @@ export const transformImage = async (req, res) => {
     const userMessage = new MessageModel({
       idConversation: conversationId,
       sender: sender,
-      content: prompt,
+      content: req.body.content || `@Image ${prompt}`,
       type: 'text',
       status: 'sent',
       isAIGenerated: false
