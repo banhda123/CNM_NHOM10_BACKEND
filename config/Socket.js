@@ -962,6 +962,104 @@ export const ConnectSocket = (server) => {
     socket.on("disconnect", () => {
       console.log(`${socket.id} disconnected`);
     });
+    
+    // Xử lý các sự kiện cuộc gọi video và âm thanh
+    
+    // Sự kiện khi người dùng gửi yêu cầu cuộc gọi
+    socket.on("call_request", (data) => {
+      try {
+        const { callerId, callerName, recipientId, callType } = data;
+        
+        if (!callerId || !recipientId) {
+          console.error("Missing caller or recipient ID in call request");
+          return;
+        }
+        
+        console.log(`📞 Call request from ${callerName || callerId} to ${recipientId} (${callType})`);
+        
+        // Gửi yêu cầu cuộc gọi đến người nhận
+        io.to(recipientId).emit("call_request", data);
+      } catch (error) {
+        console.error("Error in call_request event:", error);
+      }
+    });
+    
+    // Sự kiện khi người nhận chấp nhận cuộc gọi
+    socket.on("call_accepted", (data) => {
+      try {
+        const { callerId, recipientId } = data;
+        
+        if (!callerId || !recipientId) {
+          console.error("Missing caller or recipient ID in call accept");
+          return;
+        }
+        
+        console.log(`📞 Call accepted: ${recipientId} accepted call from ${callerId}`);
+        
+        // Gửi thông báo chấp nhận cuộc gọi đến người gọi
+        io.to(callerId).emit("call_accepted", data);
+      } catch (error) {
+        console.error("Error in call_accepted event:", error);
+      }
+    });
+    
+    // Sự kiện khi người nhận từ chối cuộc gọi
+    socket.on("call_rejected", (data) => {
+      try {
+        const { callerId, recipientId } = data;
+        
+        if (!callerId || !recipientId) {
+          console.error("Missing caller or recipient ID in call reject");
+          return;
+        }
+        
+        console.log(`📞 Call rejected: ${recipientId} rejected call from ${callerId}`);
+        
+        // Gửi thông báo từ chối cuộc gọi đến người gọi
+        io.to(callerId).emit("call_rejected", data);
+      } catch (error) {
+        console.error("Error in call_rejected event:", error);
+      }
+    });
+    
+    // Sự kiện khi cuộc gọi kết thúc
+    socket.on("call_ended", (data) => {
+      try {
+        const { callerId, recipientId, endedBy } = data;
+        
+        if (!callerId || !recipientId) {
+          console.error("Missing caller or recipient ID in call end");
+          return;
+        }
+        
+        console.log(`📞 Call ended by ${endedBy}: call between ${callerId} and ${recipientId}`);
+        
+        // Gửi thông báo kết thúc cuộc gọi đến cả người gọi và người nhận
+        io.to(callerId).emit("call_ended", data);
+        io.to(recipientId).emit("call_ended", data);
+      } catch (error) {
+        console.error("Error in call_ended event:", error);
+      }
+    });
+    
+    // Sự kiện trao đổi tín hiệu WebRTC
+    socket.on("signal_data", (data) => {
+      try {
+        const { to, from, signal } = data;
+        
+        if (!to || !from || !signal) {
+          console.error("Missing required data in signal_data event");
+          return;
+        }
+        
+        console.log(`📡 Signal data from ${from} to ${to} (type: ${signal.type || 'unknown'})`);
+        
+        // Gửi tín hiệu đến người nhận
+        io.to(to).emit("signal_data", data);
+      } catch (error) {
+        console.error("Error in signal_data event:", error);
+      }
+    });
 
     // Xử lý tạo nhóm mới
     socket.on("create_group", async (groupData) => {
