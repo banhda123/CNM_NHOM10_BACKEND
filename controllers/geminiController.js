@@ -4,6 +4,7 @@ import { ConversationModel } from '../models/ConversationModel.js';
 import { UsersModel } from '../models/UserModel.js';
 import mongoose from 'mongoose';
 import UserAIModel from '../models/UserAIModel.js';
+import { emitNewMessage } from '../config/Socket.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
@@ -152,22 +153,18 @@ export const processGeminiMessage = async (req, res) => {
     await newMessage.save();
     
     // Update conversation's last message with the ID of the new message
-    // Theo schema, lastMessage là một ObjectId tham chiếu đến Message model
     try {
       conversation.lastMessage = newMessage._id;
       await conversation.save();
     } catch (error) {
       console.error('Error saving conversation:', error);
-      // Tiếp tục xử lý mà không throw lỗi
     }
     
-    // Emit socket event for new message if socket service is available
-    if (req.app.get('io')) {
-      const io = req.app.get('io');
-      io.to(conversationId).emit('new_message', {
-        ...newMessage.toObject(),
-        sender: geminiUser
-      });
+    // Emit socket event for new message (dùng emitNewMessage)
+    try {
+      await emitNewMessage(newMessage);
+    } catch (e) {
+      console.error('Error emitting Gemini message via socket:', e);
     }
     
     return res.status(200).json({

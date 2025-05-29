@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { emitNewMessage } from '../config/Socket.js';
 
 // Get current directory
 const __filename = fileURLToPath(import.meta.url);
@@ -160,14 +161,9 @@ export const generateImageFromText = async (req, res) => {
     await conversation.save();
 
     // Emit socket event for new message if socket service is available
-    const { emitNewMessage, getIO } = await import('../config/Socket.js');
+    const { getIO } = await import('../config/Socket.js');
     
-    if (emitNewMessage) {
-      await emitNewMessage(savedMessage, socketId);
-    }
-    
-    // Update conversation list for all members
-    try {
+    if (getIO) {
       const io = getIO();
       if (io) {
         const updatedConversation = await ConversationModel.findById(conversationId)
@@ -188,8 +184,13 @@ export const generateImageFromText = async (req, res) => {
           });
         }
       }
-    } catch (socketError) {
-      console.error("Error sending socket updates:", socketError);
+    }
+
+    // Emit socket event for new message (dùng emitNewMessage)
+    try {
+      await emitNewMessage(savedMessage, socketId);
+    } catch (e) {
+      console.error('Error emitting AI image message via socket:', e);
     }
 
     return res.status(200).json({
@@ -312,14 +313,9 @@ export const transformImage = async (req, res) => {
     await conversation.save();
 
     // Emit socket event for new message if socket service is available
-    const { emitNewMessage, getIO } = await import('../config/Socket.js');
+    const { getIO } = await import('../config/Socket.js');
     
-    if (emitNewMessage) {
-      await emitNewMessage(savedMessage, socketId);
-    }
-    
-    // Update conversation list for all members
-    try {
+    if (getIO) {
       const io = getIO();
       if (io) {
         const updatedConversation = await ConversationModel.findById(conversationId)
@@ -340,8 +336,13 @@ export const transformImage = async (req, res) => {
           });
         }
       }
-    } catch (socketError) {
-      console.error("Error sending socket updates:", socketError);
+    }
+
+    // Emit socket event for new message (dùng emitNewMessage)
+    try {
+      await emitNewMessage(savedMessage, socketId);
+    } catch (e) {
+      console.error('Error emitting AI image message via socket:', e);
     }
 
     return res.status(200).json({
