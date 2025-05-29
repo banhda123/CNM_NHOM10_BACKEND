@@ -19,10 +19,6 @@ import { ConversationModel } from "../models/ConversationModel.js";
 // Biến để lưu trữ io instance để có thể sử dụng từ các module khác
 let ioInstance = null;
 
-// ==== SIGNALING CALL AUDIO/VIDEO (WebRTC) ====
-// Quản lý trạng thái cuộc gọi đơn giản (có thể mở rộng call nhóm)
-const ongoingCalls = new Map(); // key: userId, value: { from, to, type }
-
 export const ConnectSocket = (server) => {
   const io = new Server(server, {
     cors: {
@@ -1180,58 +1176,6 @@ export const ConnectSocket = (server) => {
         }
       } catch (error) {
         console.error("Error handling member_added event:", error);
-      }
-    });
-
-    // Khi user A gọi user B
-    socket.on("call_user", ({ toUserId, fromUserId, callType, signalData }) => {
-      // Kiểm tra nếu user B đang bận
-      if (ongoingCalls.has(toUserId)) {
-        socket.emit("call_busy", { toUserId });
-        return;
-      }
-      // Lưu trạng thái cuộc gọi
-      ongoingCalls.set(fromUserId, { from: fromUserId, to: toUserId, type: callType });
-      ongoingCalls.set(toUserId, { from: fromUserId, to: toUserId, type: callType });
-      // Gửi tín hiệu gọi tới user B
-      io.to(toUserId).emit("incoming_call", { fromUserId, callType, signalData });
-    });
-
-    // Khi user B trả lời cuộc gọi
-    socket.on("answer_call", ({ toUserId, fromUserId, signalData }) => {
-      io.to(toUserId).emit("call_answered", { fromUserId, signalData });
-    });
-
-    // Trao đổi ICE candidate
-    socket.on("ice_candidate", ({ toUserId, fromUserId, candidate }) => {
-      io.to(toUserId).emit("ice_candidate", { fromUserId, candidate });
-    });
-
-    // Kết thúc cuộc gọi
-    socket.on("end_call", ({ toUserId, fromUserId }) => {
-      ongoingCalls.delete(fromUserId);
-      ongoingCalls.delete(toUserId);
-      io.to(toUserId).emit("call_ended", { fromUserId });
-      io.to(fromUserId).emit("call_ended", { toUserId });
-    });
-
-    // Khi user từ chối cuộc gọi
-    socket.on("reject_call", ({ toUserId, fromUserId }) => {
-      ongoingCalls.delete(fromUserId);
-      ongoingCalls.delete(toUserId);
-      io.to(toUserId).emit("call_rejected", { fromUserId });
-      io.to(fromUserId).emit("call_rejected", { toUserId });
-    });
-
-    // Khi disconnect, kết thúc mọi cuộc gọi liên quan
-    socket.on("disconnect", () => {
-      for (const [userId, call] of ongoingCalls.entries()) {
-        if (call.from === socket.userId || call.to === socket.userId) {
-          ongoingCalls.delete(call.from);
-          ongoingCalls.delete(call.to);
-          io.to(call.from).emit("call_ended", { toUserId: call.to });
-          io.to(call.to).emit("call_ended", { fromUserId: call.from });
-        }
       }
     });
   });
