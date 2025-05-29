@@ -25,7 +25,8 @@ import {
   deferFriendRequest,
   getDeferredRequests,
   cancelFriendRequest,
-  removeFriend
+  removeFriend,
+  sendMailRegister
 } from "../controllers/userController.js";
 import { isAuth } from "../utils/index.js";
 import { upload } from "../utils/uploadImage.js";
@@ -67,5 +68,6 @@ UserRouter.get("/demo", Demo);
 // New routes
 UserRouter.post("/update-profile", isAuth, updateUserInfo);
 UserRouter.post("/change-password", isAuth, changeUserPassword);
+UserRouter.post("/sendmail-register", sendMailRegister);
 
 export default UserRouter;

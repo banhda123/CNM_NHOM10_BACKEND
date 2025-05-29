@@ -792,3 +792,33 @@ export const removeFriend = async (req, res) => {
     });
   }
 };
+
+export const sendMailRegister = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    const phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).send({ message: "Số điện thoại phải gồm đúng 10 chữ số." });
+    }
+    // Kiểm tra số điện thoại đã tồn tại
+    const userExists = await UsersModel.findOne({ phone });
+    if (userExists && userExists.name) {
+      return res.status(400).send({ message: "Số điện thoại này đã đăng ký" });
+    }
+    // Sinh OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    let user;
+    if (!userExists) {
+      user = new UsersModel({ phone, otp });
+    } else {
+      user = userExists;
+      user.otp = otp;
+    }
+    await user.save();
+    await sendSMS(phone, otp);
+    return res.status(200).send({ message: "Đã gửi OTP về số điện thoại của bạn" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Không gửi được mã OTP" });
+  }
+};
