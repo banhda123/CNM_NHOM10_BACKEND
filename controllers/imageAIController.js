@@ -153,11 +153,17 @@ export const generateImageFromText = async (req, res) => {
       isAIGenerated: true
     });
 
-    // Save the message
-    const savedMessage = await newMessage.save();
+    // Save the user question message
+    await newMessage.save();
+    // Emit socket cho câu hỏi của user
+    try {
+      await emitNewMessage(newMessage, socketId);
+    } catch (e) {
+      console.error('Error emitting ImageAI user question via socket:', e);
+    }
 
     // Update conversation's last message
-    conversation.lastMessage = savedMessage._id;
+    conversation.lastMessage = newMessage._id;
     await conversation.save();
 
     // Emit socket event for new message if socket service is available
@@ -178,7 +184,7 @@ export const generateImageFromText = async (req, res) => {
             if (member.idUser && member.idUser._id) {
               io.to(member.idUser._id.toString()).emit("update_conversation_list", {
                 conversation: updatedConversation,
-                newMessage: savedMessage
+                newMessage: newMessage
               });
             }
           });
@@ -186,17 +192,10 @@ export const generateImageFromText = async (req, res) => {
       }
     }
 
-    // Emit socket event for new message (dùng emitNewMessage)
-    try {
-      await emitNewMessage(savedMessage, socketId);
-    } catch (e) {
-      console.error('Error emitting AI image message via socket:', e);
-    }
-
     return res.status(200).json({
       success: true,
       message: 'Image generated successfully',
-      data: savedMessage
+      data: newMessage
     });
 
   } catch (error) {
@@ -305,11 +304,17 @@ export const transformImage = async (req, res) => {
       isAIGenerated: true
     });
 
-    // Save the message
-    const savedMessage = await newMessage.save();
+    // Save the user question message
+    await newMessage.save();
+    // Emit socket cho câu hỏi của user
+    try {
+      await emitNewMessage(newMessage, socketId);
+    } catch (e) {
+      console.error('Error emitting ImageAI user question via socket:', e);
+    }
 
     // Update conversation's last message
-    conversation.lastMessage = savedMessage._id;
+    conversation.lastMessage = newMessage._id;
     await conversation.save();
 
     // Emit socket event for new message if socket service is available
@@ -330,7 +335,7 @@ export const transformImage = async (req, res) => {
             if (member.idUser && member.idUser._id) {
               io.to(member.idUser._id.toString()).emit("update_conversation_list", {
                 conversation: updatedConversation,
-                newMessage: savedMessage
+                newMessage: newMessage
               });
             }
           });
@@ -338,17 +343,10 @@ export const transformImage = async (req, res) => {
       }
     }
 
-    // Emit socket event for new message (dùng emitNewMessage)
-    try {
-      await emitNewMessage(savedMessage, socketId);
-    } catch (e) {
-      console.error('Error emitting AI image message via socket:', e);
-    }
-
     return res.status(200).json({
       success: true,
       message: 'Image transformed successfully',
-      data: savedMessage
+      data: newMessage
     });
 
   } catch (error) {

@@ -167,6 +167,15 @@ export const processGeminiMessage = async (req, res) => {
       console.error('Error emitting Gemini message via socket:', e);
     }
     
+    // Save the user question message
+    await newMessage.save();
+    // Emit socket cho câu hỏi của user
+    try {
+      await emitNewMessage(newMessage, socketId);
+    } catch (e) {
+      console.error('Error emitting Gemini user question via socket:', e);
+    }
+    
     return res.status(200).json({
       success: true,
       message: 'Gemini response processed successfully',
