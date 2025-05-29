@@ -22,7 +22,7 @@ let ioInstance = null;
 export const ConnectSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: ["http://localhost:3000", "http://localhost", "http://localhost:8081"],
+      origin: ["http://localhost:3000", "http://localhost", "http://localhost:8081", "*"],
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
       allowedHeaders: ["my-custom-header", "Content-Type", "Authorization"],
       credentials: true,
