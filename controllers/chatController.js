@@ -4,7 +4,7 @@ import { MessageModel } from "../models/MessageModel.js";
 import { UsersModel } from "../models/UserModel.js";
 import fs from 'fs';
 import { uploadToCloudinary } from '../config/Cloudinary.js';
-import { getIO } from '../config/Socket.js';
+import { getIO, emitNewMessage } from '../config/Socket.js';
 
 export const createConversation = async (userFrom, userTo) => {
   console.log(userFrom, userTo);
@@ -325,6 +325,11 @@ export const saveMessage = async (dataOrReq, res) => {
 
     // Cập nhật tin nhắn cuối cùng
     await updateLastMesssage({ idConversation, message: savedMessage._id });
+
+    // Emit socket nếu là message lệnh (command)
+    if (messageData.type === 'command') {
+      await emitNewMessage(savedMessage, data.socketId);
+    }
 
     // Return the message object
     if (res) {
