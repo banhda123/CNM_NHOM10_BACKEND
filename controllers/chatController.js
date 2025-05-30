@@ -2405,3 +2405,23 @@ export const getConversationLinks = async (req, res) => {
     });
   }
 };
+
+// Xóa lịch sử trò chuyện chỉ cho bản thân user (không ảnh hưởng người khác)
+export const clearChatHistoryForUser = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+    if (!conversationId) {
+      return res.status(400).json({ success: false, message: "Conversation ID is required" });
+    }
+    // Xóa tất cả tin nhắn trong conversation này đối với user hiện tại
+    await MessageModel.updateMany(
+      { idConversation: conversationId },
+      { $addToSet: { deletedBy: userId } }
+    );
+    return res.status(200).json({ success: true, message: "Đã xóa lịch sử trò chuyện cho bạn" });
+  } catch (error) {
+    console.error("Error clearing chat history for user:", error);
+    return res.status(500).json({ success: false, message: "Failed to clear chat history", error: error.message });
+  }
+};

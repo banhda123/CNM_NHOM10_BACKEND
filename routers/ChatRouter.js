@@ -24,7 +24,8 @@ import {
   getPinnedMessages,
   getConversationMedia,
   getConversationFiles,
-  getConversationLinks
+  getConversationLinks,
+  clearChatHistoryForUser,
 } from "../controllers/chatController.js";
 import { isAuth } from "../utils/index.js";
 import multer from "multer";
@@ -179,5 +180,8 @@ ChatRouter.post("/message/reaction/remove", isAuth, async (req, res) => {
 ChatRouter.get("/conversation/:conversationId/media", isAuth, getConversationMedia);
 ChatRouter.get("/conversation/:conversationId/files", isAuth, getConversationFiles);
 ChatRouter.get("/conversation/:conversationId/links", isAuth, getConversationLinks);
+
+// Xóa lịch sử trò chuyện chỉ cho bản thân user
+ChatRouter.delete('/conversation/:conversationId/history', isAuth, clearChatHistoryForUser);
 
 export default ChatRouter;
